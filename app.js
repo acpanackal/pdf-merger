@@ -1,182 +1,169 @@
-* {
-  box-sizing: border-box;
-}
+const modeButtons = document.querySelectorAll('.mode-btn');
+const mergePanel = document.getElementById('merge-panel');
+const reducePanel = document.getElementById('reduce-panel');
+const statusBox = document.getElementById('status-box');
+const mergeInput = document.getElementById('merge-input');
+const mergeFileCount = document.getElementById('merge-file-count');
+const mergeDownloadBtn = document.getElementById('merge-download');
+const reduceInput = document.getElementById('reduce-input');
+const reduceFileName = document.getElementById('reduce-file-name');
+const reduceDownloadBtn = document.getElementById('reduce-download');
+const qualitySelect = document.getElementById('quality');
 
-:root {
-  --bg: #07111d;
-  --panel: rgba(15, 23, 42, 0.8);
-  --panel-soft: rgba(15, 23, 42, 0.62);
-  --line: rgba(148, 163, 184, 0.18);
-  --text: #edf6ff;
-  --muted: #b8c6db;
-  --accent: #5eead4;
-  --accent-strong: #34d399;
-  --accent-soft: rgba(94, 234, 212, 0.1);
-  --shadow: 0 30px 60px rgba(2, 6, 23, 0.52);
-}
+let currentMode = 'merge';
 
-html {
-  scroll-behavior: smooth;
-}
+const setStatus = (message) => {
+  statusBox.textContent = message;
+};
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  font-family: 'Inter', sans-serif;
-  background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 28%),
-    radial-gradient(circle at right center, rgba(96, 165, 250, 0.16), transparent 30%),
-    var(--bg);
-  color: var(--text);
-}
+const downloadBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
 
-button, input, select {
-  font: inherit;
-}
+const setMode = (mode) => {
+  currentMode = mode;
 
-.app-shell {
-  width: min(900px, calc(100% - 2rem));
-  margin: 0 auto;
-  padding: 56px 0 80px;
-}
+  modeButtons.forEach((button) => {
+    const active = button.dataset.mode === mode;
+    button.classList.toggle('active', active);
+  });
 
-.topbar {
-  margin-bottom: 1.2rem;
-}
+  mergePanel.classList.toggle('active', mode === 'merge');
+  reducePanel.classList.toggle('active', mode === 'reduce');
 
-.eyebrow {
-  margin: 0 0 0.4rem;
-  color: var(--accent);
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 700;
-}
+  if (mode === 'merge') {
+    setStatus('Ready to merge multiple PDF files.');
+  } else {
+    setStatus('Ready to compress a single PDF file.');
+  }
+};
 
-h1 {
-  margin: 0;
-  font-size: clamp(2.2rem, 4vw, 3.5rem);
-  letter-spacing: -0.06em;
-}
+modeButtons.forEach((button) => {
+  button.addEventListener('click', () => setMode(button.dataset.mode));
+});
 
-.card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 28px;
-  box-shadow: var(--shadow);
-  padding: 1.5rem;
-}
+mergeInput.addEventListener('change', () => {
+  const files = Array.from(mergeInput.files || []);
+  mergeFileCount.textContent = `${files.length} file(s) selected`;
 
-.mode-toggle {
-  display: inline-flex;
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 0.25rem;
-  gap: 0.3rem;
-}
+  if (files.length > 0) {
+    setStatus(`${files.length} PDF file(s) selected for merging.`);
+  } else {
+    setStatus('No PDF files selected.');
+  }
+});
 
-.mode-btn {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-weight: 700;
-  padding: 0.8rem 1.1rem;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
+reduceInput.addEventListener('change', () => {
+  const file = reduceInput.files && reduceInput.files[0];
 
-.mode-btn.active {
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #062118;
-}
+  if (file) {
+    reduceFileName.textContent = file.name;
+    setStatus(`Selected: ${file.name}`);
+  } else {
+    reduceFileName.textContent = 'No file selected';
+    setStatus('No PDF file selected.');
+  }
+});
 
-.panel {
-  display: none;
-  margin-top: 1.3rem;
-  padding: 1.1rem;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: var(--panel-soft);
-}
+mergeDownloadBtn.addEventListener('click', async () => {
+  const files = Array.from(mergeInput.files || []);
 
-.panel.active {
-  display: block;
-}
-
-.field-group {
-  display: grid;
-  gap: 0.52rem;
-  margin-bottom: 0.9rem;
-}
-
-.field-group.compact {
-  max-width: 260px;
-}
-
-label {
-  color: var(--text);
-  font-weight: 600;
-}
-
-input[type="file"], select {
-  width: 100%;
-  border: 1px solid var(--line);
-  background: rgba(15, 23, 42, 0.85);
-  border-radius: 12px;
-  color: var(--text);
-  padding: 0.85rem 0.9rem;
-}
-
-.file-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-top: 0.7rem;
-  color: var(--muted);
-}
-
-.secondary {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(15, 23, 42, 0.8);
-  color: var(--text);
-  border-radius: 12px;
-  padding: 0.7rem 1rem;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.secondary:hover {
-  border-color: rgba(94, 234, 212, 0.35);
-}
-
-.status-box {
-  margin-top: 1.2rem;
-  border-radius: 14px;
-  background: var(--accent-soft);
-  border: 1px solid rgba(94, 234, 212, 0.25);
-  color: var(--text);
-  padding: 0.9rem 1rem;
-  line-height: 1.5;
-}
-
-@media (max-width: 640px) {
-  .card {
-    padding: 1rem;
+  if (!files.length) {
+    setStatus('Please choose at least one PDF file to merge.');
+    return;
   }
 
-  .mode-toggle {
-    width: 100%;
+  try {
+    setStatus('Merging PDFs...');
+    const { PDFDocument } = PDFLib;
+    const mergedPdf = await PDFDocument.create();
+
+    for (const file of files) {
+      const fileBytes = await file.arrayBuffer();
+      const pdf = await PDFDocument.load(fileBytes);
+      const pageIndexes = pdf.getPageIndices();
+      const copiedPages = await mergedPdf.copyPages(pdf, pageIndexes);
+      copiedPages.forEach((page) => mergedPdf.addPage(page));
+    }
+
+    const mergedBytes = await mergedPdf.save();
+    downloadBlob(new Blob([mergedBytes], { type: 'application/pdf' }), 'merged.pdf');
+    setStatus('Merge complete. Download started.');
+  } catch (error) {
+    console.error(error);
+    setStatus('Merge failed. Please make sure all selected files are valid PDFs.');
+  }
+});
+
+reduceDownloadBtn.addEventListener('click', async () => {
+  const file = reduceInput.files && reduceInput.files[0];
+
+  if (!file) {
+    setStatus('Please choose a PDF file to reduce.');
+    return;
   }
 
-  .mode-btn {
-    flex: 1;
-  }
+  try {
+    setStatus('Reducing PDF size...');
+    const qualityLevel = qualitySelect.value;
+    const qualityMap = { low: 0.5, medium: 0.7, high: 0.85 };
+    const scale = qualityMap[qualityLevel] || 0.7;
 
-  .file-summary {
-    align-items: flex-start;
-    flex-direction: column;
+    const pdfData = await file.arrayBuffer();
+    const pdfjsLib = window.pdfjsLib;
+
+    if (!pdfjsLib) {
+      throw new Error('PDF.js failed to load.');
+    }
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.15.349/pdf.worker.min.js';
+    const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+    const { PDFDocument } = PDFLib;
+    const newPdf = await PDFDocument.create();
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const context = canvas.getContext('2d');
+
+      await page.render({ canvasContext: context, viewport }).promise;
+      const jpegBlob = await new Promise((resolve) => {
+        canvas.toBlob(resolve, 'image/jpeg', 0.8);
+      });
+
+      if (!jpegBlob) {
+        throw new Error('Could not convert page to JPEG.');
+      }
+
+      const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
+      const image = await newPdf.embedJpg(jpegBytes);
+      const newPage = newPdf.addPage([viewport.width, viewport.height]);
+      newPage.drawImage(image, {
+        x: 0,
+        y: 0,
+        width: viewport.width,
+        height: viewport.height,
+      });
+    }
+
+    const reducedBytes = await newPdf.save();
+    const outputName = file.name.replace(/\.pdf$/i, '') + '-reduced.pdf';
+    downloadBlob(new Blob([reducedBytes], { type: 'application/pdf' }), outputName);
+    setStatus('PDF size reduction complete. Download started.');
+  } catch (error) {
+    console.error(error);
+    setStatus('Compression failed. Please try another PDF or a different compression setting.');
   }
-}
+});
+
+setMode(currentMode);
