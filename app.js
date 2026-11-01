@@ -11,10 +11,40 @@ const reduceDownloadBtn = document.getElementById('reduce-download');
 const qualitySelect = document.getElementById('quality');
 
 let currentMode = 'merge';
+const mergeSelection = [];
 
 const setStatus = (message) => {
   if (statusBox) {
     statusBox.textContent = message;
+  }
+};
+
+const normalizeFiles = (files) => {
+  const unique = [];
+  const seen = new Set();
+
+  files.forEach((file) => {
+    const key = `${file.name}-${file.size}-${file.lastModified}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(file);
+    }
+  });
+
+  return unique;
+};
+
+const updateMergeSelectionUI = () => {
+  const count = mergeSelection.length;
+
+  if (mergeFileCount) {
+    mergeFileCount.textContent = `${count} file(s) selected`;
+  }
+
+  if (count > 0) {
+    setStatus(`${count} PDF file(s) selected for merging.`);
+  } else {
+    setStatus('No PDF files selected.');
   }
 };
 
@@ -46,7 +76,11 @@ const setMode = (mode) => {
   }
 
   if (mode === 'merge') {
-    setStatus('Ready to merge multiple PDF files.');
+    setStatus(
+      mergeSelection.length
+        ? `${mergeSelection.length} PDF file(s) selected for merging.`
+        : 'Ready to merge multiple PDF files.'
+    );
   } else {
     setStatus('Ready to compress a single PDF file.');
   }
@@ -54,26 +88,32 @@ const setMode = (mode) => {
 
 if (mergeInput) {
   mergeInput.multiple = true;
+  mergeInput.addEventListener('click', () => {
+    mergeInput.value = '';
+  });
+
+  mergeInput.addEventListener('change', () => {
+    const selectedFiles = normalizeFiles(Array.from(mergeInput.files || []));
+
+    selectedFiles.forEach((file) => {
+      const alreadyAdded = mergeSelection.some(
+        (existing) =>
+          existing.name === file.name && existing.size === file.size && existing.lastModified === file.lastModified
+      );
+
+      if (!alreadyAdded) {
+        mergeSelection.push(file);
+      }
+    });
+
+    mergeInput.value = '';
+    updateMergeSelectionUI();
+  });
 }
 
 if (modeButtons.length) {
   modeButtons.forEach((button) => {
     button.addEventListener('click', () => setMode(button.dataset.mode));
-  });
-}
-
-if (mergeInput) {
-  mergeInput.addEventListener('change', () => {
-    const files = Array.from(mergeInput.files || []);
-    if (mergeFileCount) {
-      mergeFileCount.textContent = `${files.length} file(s) selected`;
-    }
-
-    if (files.length > 0) {
-      setStatus(`${files.length} PDF file(s) selected for merging.`);
-    } else {
-      setStatus('No PDF files selected.');
-    }
   });
 }
 
@@ -97,7 +137,7 @@ if (reduceInput) {
 
 if (mergeDownloadBtn) {
   mergeDownloadBtn.addEventListener('click', async () => {
-    const files = Array.from(mergeInput?.files || []);
+    const files = [...mergeSelection];
 
     if (!files.length) {
       setStatus('Please choose at least one PDF file to merge.');
@@ -140,9 +180,9 @@ if (reduceDownloadBtn) {
       setStatus('Reducing PDF size...');
       const qualityLevel = qualitySelect?.value || 'medium';
       const qualityMap = {
-        low: { scale: 1.15, jpeg: 0.72 },
-        medium: { scale: 1.4, jpeg: 0.82 },
-        high: { scale: 1.7, jpeg: 0.9 },
+        low: { scale: 1.1, jpeg: 0.72 },
+        medium: { scale: 1.35, jpeg: 0.82 },
+        high: { scale: 1.6, jpeg: 0.9 },
       };
       const renderConfig = qualityMap[qualityLevel] || qualityMap.medium;
 
