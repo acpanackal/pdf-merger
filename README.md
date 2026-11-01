@@ -1,2 +1,2 @@
-# pdf-merger
-Merge multiple PDF files into a single document with a simple CLI tool.
+pypdf>=4.0.0
+PyMuPDF>=1.24.0

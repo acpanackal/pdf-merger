@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+import os
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+from pathlib import Path
+
+from pypdf import PdfReader, PdfWriter
+import fitz
+
+
+class PDFToolApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("PDF Toolkit")
+        self.root.geometry("700x500")
+        self.root.minsize(650, 450)
+
+        self.mode_var = tk.StringVar(value="merge")
+        self.output_path = tk.StringVar()
+        self.selected_files = []
+
+        self.build_ui()
+
+    def build_ui(self):
+        main = ttk.Frame(self.root, padding=18)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(main, text="PDF Toolkit", font=("Inter", 18, "bold")).pack(anchor="w", pady=(0, 8))
+
+        mode_frame = ttk.Frame(main)
+        mode_frame.pack(fill=tk.X, pady=(0, 12))
+
+        ttk.Radiobutton(mode_frame, text="Merge PDFs", variable=self.mode_var, value="merge",\n                        command=self.toggle_mode).pack(side=tk.LEFT)
+        ttk.Radiobutton(mode_frame, text="Reduce PDF Size", variable=self.mode_var, value="reduce",
+                        command=self.toggle_mode).pack(side=tk.LEFT, padx=(16, 0))
+
+        self.file_area = ttk.LabelFrame(main, text="File Selection", padding=12)
+        self.file_area.pack(fill=tk.X, pady=(0, 12))
+
+        self.file_list = tk.Listbox(self.file_area, height=8, exportselection=False)
+        self.file_list.pack(fill=tk.X, pady=(0, 8))
+
+        button_row = ttk.Frame(self.file_area)
+        button_row.pack(fill=tk.X)
+
+        ttk.Button(button_row, text="Add Files", command=self.add_files).pack(side=tk.LEFT)
+        ttk.Button(button_row, text="Choose One File", command=self.choose_one_file).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(button_row, text="Clear", command=self.clear_files).pack(side=tk.LEFT, padx=(8, 0))
+
+        self.output_frame = ttk.LabelFrame(main, text="Output", padding=12)
+        self.output_frame.pack(fill=tk.X, pady=(0, 12))
+
+        ttk.Label(self.output_frame, text="Output path:").pack(anchor="w")
+        ttk.Entry(self.output_frame, textvariable=self.output_path, width=80).pack(fill=tk.X, pady=(4, 0))
+        ttk.Button(self.output_frame, text="Choose Output Location", command=self.choose_output_path).pack(anchor="w", pady=(8, 0))
+
+        self.quality_frame = ttk.Frame(main)
+        self.quality_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.quality_label = ttk.Label(self.quality_frame, text="Compression quality:")
+        self.quality_label.pack(anchor="w")
+
+        self.quality_var = tk.StringVar(value="medium")
+        qualities = ["low", "medium", "high"]
+        self.quality_combo = ttk.Combobox(self.quality_frame, textvariable=self.quality_var, values=qualities, state="readonly", width=12)
+        self.quality_combo.pack(anchor="w", pady=(4, 0))
+
+        run_btn = ttk.Button(main, text="Run", command=self.run_action, style="Accent.TButton")
+        run_btn.pack(fill=tk.X, pady=(8, 0))
+
+        self.toggle_mode()
+
+    def toggle_mode(self):
+        mode = self.mode_var.get()
+        if mode == "merge":
+            self.file_list.config(height=8)
+            self.quality_label.pack_forget()
+            self.quality_combo.pack_forget()
+            self.file_area.configure(text="Merge Files")
+        else:
+            self.file_list.config(height=6)
+            self.quality_label.pack(anchor="w")
+            self.quality_combo.pack(anchor="w", pady=(4, 0))
+            self.file_area.configure(text="Reduce PDF Size")
+
+        self.clear_files()
+
+    def add_files(self):
+        files = filedialog.askopenfilenames(title="Select PDF files", filetypes=[("PDF files", "*.pdf")])
+        if not files:
+            return
+
+        for file in files:
+            if file not in self.selected_files:
+                self.selected_files.append(file)
+        self.refresh_file_list()
+
+    def choose_one_file(self):
+        file = filedialog.askopenfilename(title="Select PDF file", filetypes=[("PDF files", "*.pdf")])
+        if not file:
+            return
+        self.selected_files = [file]
+        self.refresh_file_list()
+
+    def clear_files(self):
+        self.selected_files = []
+        self.file_list.delete(0, tk.END)
+
+    def refresh_file_list(self):
+        self.file_list.delete(0, tk.END)
+        for path in self.selected_files:
+            self.file_list.insert(tk.END, Path(path).name)
+
+    def choose_output_path(self):
+        mode = self.mode_var.get()
+        if mode == "merge":
+            path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")], title="Save merged PDF")
+        else:
+            path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")], title="Save reduced PDF")
+
+        if path:
+            self.output_path.set(path)
+
+    def run_action(self):
+        mode = self.mode_var.get()
+        if not self.selected_files:
+            messagebox.showerror("Missing file", "Please select at least one PDF file.")
+            return
+
+        if not self.output_path.get():
+            messagebox.showerror("Missing output", "Please choose an output file path.")
+            return
+
+        try:
+            if mode == "merge":
+                self.merge_pdfs(self.selected_files, self.output_path.get())
+            else:
+                self.reduce_pdf_size(self.selected_files[0], self.output_path.get(), self.quality_var.get())
+            messagebox.showinfo("Success", f"PDF operation completed successfully.\nOutput: {self.output_path.get()}")
+        except Exception as exc:
+            messagebox.showerror("Error", str(exc))
+
+    def merge_pdfs(self, input_files, output_path):
+        writer = PdfWriter()
+        for file_path in input_files:
+            reader = PdfReader(file_path)
+            for page in reader.pages:
+                writer.add_page(page)
+
+        with open(output_path, "wb") as f:
+            writer.write(f)
+
+    def reduce_pdf_size(self, input_file, output_path, quality):
+        quality_map = {
+            "low": 0.55,
+            "medium": 0.72,
+            "high": 0.88,
+        }
+        scale = quality_map.get(quality, 0.72)
+
+        doc = fitz.open(input_file)
+        new_doc = fitz.open()
+
+        for page in doc:
+            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale))
+            new_page = new_doc.new_page(width=pix.width, height=pix.height)
+            new_page.insert_image(new_page.rect, pixmap=pix)
+
+        new_doc.save(output_path, garbage=4, deflate=True, clean=True, pretty=True)
+        new_doc.close()
+        doc.close()
+
+
+def main():
+    root = tk.Tk()
+    app = PDFToolApp(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
