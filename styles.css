@@ -3,25 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="PDF Toolkit for merging and compressing PDF files in the browser." />
     <title>PDF Toolkit</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.15.349/pdf.min.js"></script>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">Browser PDF utility</p>
-          <h1>PDF Toolkit</h1>
-        </div>
+        <p class="eyebrow">Browser PDF utility</p>
+        <h1>PDF Toolkit</h1>
       </header>
 
       <main class="card">
-        <div class="mode-toggle" role="tablist" aria-label="Tool mode selector">
+        <div class="mode-toggle" aria-label="Tool mode selector">
           <button class="mode-btn active" data-mode="merge" type="button">Merge PDFs</button>
           <button class="mode-btn" data-mode="reduce" type="button">Reduce PDF Size</button>
         </div>
@@ -31,6 +30,7 @@
             <label for="merge-input">Choose PDFs to merge</label>
             <input id="merge-input" type="file" accept="application/pdf" multiple />
           </div>
+
           <div class="file-summary">
             <span id="merge-file-count">0 file(s) selected</span>
             <button id="merge-download" class="secondary" type="button">Download merged PDF</button>
@@ -64,6 +64,6 @@
       </main>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <script src="app.js"></script>
   </body>
 </html>

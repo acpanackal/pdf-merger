@@ -4,9 +4,8 @@
 
 :root {
   --bg: #07111d;
-  --bg-panel: rgba(15, 23, 42, 0.82);
-  --panel: #0f172a;
-  --panel-alt: #111827;
+  --panel: rgba(15, 23, 42, 0.8);
+  --panel-soft: rgba(15, 23, 42, 0.62);
   --line: rgba(148, 163, 184, 0.18);
   --text: #edf6ff;
   --muted: #b8c6db;
@@ -16,20 +15,21 @@
   --shadow: 0 30px 60px rgba(2, 6, 23, 0.52);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
   font-family: 'Inter', sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 28%),
+  background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 28%),
     radial-gradient(circle at right center, rgba(96, 165, 250, 0.16), transparent 30%),
     var(--bg);
   color: var(--text);
 }
 
-button,
-input,
-select {
+button, input, select {
   font: inherit;
 }
 
@@ -59,7 +59,7 @@ h1 {
 }
 
 .card {
-  background: var(--bg-panel);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 28px;
   box-shadow: var(--shadow);
@@ -97,7 +97,7 @@ h1 {
   padding: 1.1rem;
   border: 1px solid var(--line);
   border-radius: 20px;
-  background: rgba(15, 23, 42, 0.52);
+  background: var(--panel-soft);
 }
 
 .panel.active {
@@ -119,8 +119,7 @@ label {
   font-weight: 600;
 }
 
-input[type="file"],
-select {
+input[type="file"], select {
   width: 100%;
   border: 1px solid var(--line);
   background: rgba(15, 23, 42, 0.85);

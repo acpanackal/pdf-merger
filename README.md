@@ -2,26 +2,34 @@ const modeButtons = document.querySelectorAll('.mode-btn');
 const mergePanel = document.getElementById('merge-panel');
 const reducePanel = document.getElementById('reduce-panel');
 const statusBox = document.getElementById('status-box');
-
 const mergeInput = document.getElementById('merge-input');
 const mergeFileCount = document.getElementById('merge-file-count');
 const mergeDownloadBtn = document.getElementById('merge-download');
-
 const reduceInput = document.getElementById('reduce-input');
 const reduceFileName = document.getElementById('reduce-file-name');
 const reduceDownloadBtn = document.getElementById('reduce-download');
 const qualitySelect = document.getElementById('quality');
 
 let currentMode = 'merge';
-let mergedPdfBytes = null;
-let reducedPdfBytes = null;
 
 const setStatus = (message) => {
   statusBox.textContent = message;
 };
 
+const downloadBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
 const setMode = (mode) => {
   currentMode = mode;
+
   modeButtons.forEach((button) => {
     const active = button.dataset.mode === mode;
     button.classList.toggle('active', active);
@@ -33,7 +41,7 @@ const setMode = (mode) => {
   if (mode === 'merge') {
     setStatus('Ready to merge multiple PDF files.');
   } else {
-    setStatus('Ready to compress one PDF file.');
+    setStatus('Ready to compress a single PDF file.');
   }
 };
 
@@ -43,21 +51,21 @@ modeButtons.forEach((button) => {
 
 mergeInput.addEventListener('change', () => {
   const files = Array.from(mergeInput.files || []);
-  mergeFileCount.textContent = `${files.length} file(s) selected`;
-  mergedPdfBytes = null;
+  mergeFileCount.textContent = files.length + ' file(s) selected';
+
   if (files.length > 0) {
-    setStatus(`${files.length} PDF file(s) selected for merging.`);
+    setStatus(files.length + ' PDF file(s) selected for merging.');
   } else {
     setStatus('No PDF files selected.');
   }
 });
 
 reduceInput.addEventListener('change', () => {
-  const file = reduceInput.files?.[0];
-  reducedPdfBytes = null;
+  const file = reduceInput.files && reduceInput.files[0];
+
   if (file) {
     reduceFileName.textContent = file.name;
-    setStatus(`Selected: ${file.name}`);
+    setStatus('Selected: ' + file.name);
   } else {
     reduceFileName.textContent = 'No file selected';
     setStatus('No PDF file selected.');
@@ -66,6 +74,7 @@ reduceInput.addEventListener('change', () => {
 
 mergeDownloadBtn.addEventListener('click', async () => {
   const files = Array.from(mergeInput.files || []);
+
   if (!files.length) {
     setStatus('Please choose at least one PDF file to merge.');
     return;
@@ -73,12 +82,14 @@ mergeDownloadBtn.addEventListener('click', async () => {
 
   try {
     setStatus('Merging PDFs...');
-    const mergedPdf = await PDFLib.PDFDocument.create();
+    const { PDFDocument } = PDFLib;
+    const mergedPdf = await PDFDocument.create();
 
     for (const file of files) {
-      const bytes = await file.arrayBuffer();
-      const pdf = await PDFLib.PDFDocument.load(bytes);
-      const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+      const fileBytes = await file.arrayBuffer();
+      const pdf = await PDFDocument.load(fileBytes);
+      const pageIndexes = pdf.getPageIndices();
+      const copiedPages = await mergedPdf.copyPages(pdf, pageIndexes);
       copiedPages.forEach((page) => mergedPdf.addPage(page));
     }
 
@@ -87,12 +98,13 @@ mergeDownloadBtn.addEventListener('click', async () => {
     setStatus('Merge complete. Download started.');
   } catch (error) {
     console.error(error);
-    setStatus('Merge failed. Please check that all selected files are valid PDFs.');
+    setStatus('Merge failed. Please make sure all selected files are valid PDFs.');
   }
 });
 
 reduceDownloadBtn.addEventListener('click', async () => {
-  const file = reduceInput.files?.[0];
+  const file = reduceInput.files && reduceInput.files[0];
+
   if (!file) {
     setStatus('Please choose a PDF file to reduce.');
     return;
@@ -102,12 +114,18 @@ reduceDownloadBtn.addEventListener('click', async () => {
     setStatus('Reducing PDF size...');
     const qualityLevel = qualitySelect.value;
     const qualityMap = { low: 0.5, medium: 0.7, high: 0.85 };
-    const scale = qualityMap[qualityLevel] ?? 0.7;
+    const scale = qualityMap[qualityLevel] || 0.7;
 
     const pdfData = await file.arrayBuffer();
-    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+    const pdfjsLib = window['pdfjsLib'];
+    if (!pdfjsLib) {
+      throw new Error('PDF.js failed to load.');
+    }
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.15.349/pdf.worker.min.js';
     const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
-    const newPdf = await PDFLib.PDFDocument.create();
+    const { PDFDocument } = PDFLib;
+    const newPdf = await PDFDocument.create();
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
@@ -115,19 +133,21 @@ reduceDownloadBtn.addEventListener('click', async () => {
       const canvas = document.createElement('canvas');
       canvas.width = viewport.width;
       canvas.height = viewport.height;
+      const context = canvas.getContext('2d');
 
-      const ctx = canvas.getContext('2d');
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      await page.render({ canvasContext: context, viewport }).promise;
+      const jpegBlob = await new Promise((resolve) => {
+        canvas.toBlob(resolve, 'image/jpeg', 0.8);
+      });
 
-      const jpegBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.7));
       if (!jpegBlob) {
         throw new Error('Could not convert page to JPEG.');
       }
-      const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
-      const embedded = await newPdf.embedJpg(jpegBytes);
 
-      const pageInNewPdf = newPdf.addPage([viewport.width, viewport.height]);
-      pageInNewPdf.drawImage(embedded, {
+      const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
+      const image = await newPdf.embedJpg(jpegBytes);
+      const newPage = newPdf.addPage([viewport.width, viewport.height]);
+      newPage.drawImage(image, {
         x: 0,
         y: 0,
         width: viewport.width,
@@ -141,19 +161,8 @@ reduceDownloadBtn.addEventListener('click', async () => {
     setStatus('PDF size reduction complete. Download started.');
   } catch (error) {
     console.error(error);
-    setStatus('Compression failed. Please try a different PDF or a different quality setting.');
+    setStatus('Compression failed. Please try another PDF or a different compression setting.');
   }
 });
-
-const downloadBlob = (blob, filename) => {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-};
 
 setMode(currentMode);
