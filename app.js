@@ -52,6 +52,10 @@ const setMode = (mode) => {
   }
 };
 
+if (mergeInput) {
+  mergeInput.multiple = true;
+}
+
 if (modeButtons.length) {
   modeButtons.forEach((button) => {
     button.addEventListener('click', () => setMode(button.dataset.mode));
@@ -135,8 +139,12 @@ if (reduceDownloadBtn) {
     try {
       setStatus('Reducing PDF size...');
       const qualityLevel = qualitySelect?.value || 'medium';
-      const qualityMap = { low: 0.5, medium: 0.7, high: 0.85 };
-      const scale = qualityMap[qualityLevel] || 0.7;
+      const qualityMap = {
+        low: { scale: 1.15, jpeg: 0.72 },
+        medium: { scale: 1.4, jpeg: 0.82 },
+        high: { scale: 1.7, jpeg: 0.9 },
+      };
+      const renderConfig = qualityMap[qualityLevel] || qualityMap.medium;
 
       const pdfData = await file.arrayBuffer();
       const pdfjsLib = window.pdfjsLib;
@@ -152,7 +160,7 @@ if (reduceDownloadBtn) {
 
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
         const page = await pdf.getPage(pageNumber);
-        const viewport = page.getViewport({ scale });
+        const viewport = page.getViewport({ scale: renderConfig.scale });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -160,7 +168,7 @@ if (reduceDownloadBtn) {
 
         await page.render({ canvasContext: context, viewport }).promise;
         const jpegBlob = await new Promise((resolve) => {
-          canvas.toBlob(resolve, 'image/jpeg', 0.8);
+          canvas.toBlob(resolve, 'image/jpeg', renderConfig.jpeg);
         });
 
         if (!jpegBlob) {
